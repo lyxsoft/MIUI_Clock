@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Clock version="1" type="awesome" screenWidth="720" framerate="0" useVariableUpdater="Battery,DateTime.Minute">
+	<Var name="clockColor" expression="'#FFFFFFFF'" type="string"/>
+	
+  <Var name="cityID" expression="0" type="number" const="true" persist="true"/> <!-- const="true" 这样只计算一次，后面的VariableCommand计算才可更新 -->
+  <var name="largeText" expression="0" type="number" const="true" persist="true"/> <!-- 0=Small+Alarm, 1=Small, 2=Large w/o Alarm -->
+
+  <var name="clockTextW1" expression="100" type="number" const="true"/>
+  <var name="clockTextW2" expression="75" type="number" const="true"/>
+  
+  <var name="x1" expression="427" type="number" const="true"/>
+  <var name="x2" expression="496" type="number" const="true"/>
+  <var name="y1" expression="111" type="number" const="true"/>
+  
+  <var name="h1" expression="#clockTextW1"/>
+  <var name="h2" expression="#clockTextW1"/>
+  <var name="h3" expression="ifelse(eq(#largeText,2),#clockTextW1,#clockTextW2)"/>
+  <var name="h4" expression="#h3"/>
+  <var name="h5" expression="#h3"/>
+
+  <Group alpha="0">
+    <Image name="hour1" x="0" y="0" src="time/time.png" srcid="#hour24/10"/>
+    <Image name="hour2" x="0" y="0" src="time/time.png" srcid="#hour24%10"/>
+    <Image name="dot" x="0" y="0" src="time/time_dot.png"/>
+    <Image name="minute1" x="0" y="0" src="time/time.png" srcid="#minute/10"/>
+    <Image name="minute2" x="0" y="0" src="time/time.png" srcid="#minute%10"/>
+  </Group>
+
+  <var name="w1" expression="#h1*#hour1.bmp_width/#hour1.bmp_height"/>
+  <var name="w2" expression="#h2*#hour2.bmp_width/#hour2.bmp_height"/>
+  <var name="w3" expression="#h3*#dot.bmp_width/#dot.bmp_height"/>
+  <var name="w4" expression="#h4*#minute1.bmp_width/#minute1.bmp_height"/>
+  <var name="w5" expression="#h5*#minute2.bmp_width/#minute2.bmp_height"/>
+
+  
+  <Var name="initFlag" expression="0" type="number" const="true"/> <!-- 触发第一次天气更新 -->
+  <Var name="initStatus" expression="ifelse(#initFlag,1,#time)" type="number" threshold="1">
+    <Trigger>
+      <VariableCommand name="initFlag" expression="#initFlag+1" delay="1000"/>
+   		<BinderCommand name="weatherInfo" command="refresh"/>
+    </Trigger>
+  </Var>
+
+  <Var name="refreshNetInfo" expression="#minute" type="number" threshold="1">
+    <Trigger>
+   		<BinderCommand name="netInfo" command="refresh"/>
+    </Trigger>
+  </Var>
+
+  <Var name="refreshNetInfo" expression="#hour24" type="number" threshold="1">
+    <Trigger>
+      <VariableCommand name="initFlag" expression="#initFlag+1"/>
+   		<BinderCommand name="weatherInfo" command="refresh"/>
+    </Trigger>
+  </Var>
+
+  <VariableBinders>
+  	<!-- Newwork Assistant -->
+		<ContentProviderBinder name="netInfo"
+			uri="content://com.miui.networkassistant.provider/datausage_status"
+			columns="total_limit,month_used,today_used,month_warning"
+			countName="hasNetInfo">
+			<Variable name="totalLimit" type="number" column="total_limit" row="0"/>
+			<Variable name="monthUsed" type="number" column="month_used" row="0"/>
+			<Variable name="todayUsed" type="number" column="today_used" row="0"/>
+		</ContentProviderBinder>
+  	
+    <!-- 天气 -->
+		<ContentProviderBinder name="cityIDs" columns="city_id" countName="hasCity" uri="content://weather/raw">
+			<Variable name="city_id0" type="string" column="city_id" row="0"/>
+			<Variable name="city_id1" type="string" column="city_id" row="1"/>
+			<Variable name="city_id2" type="string" column="city_id" row="2"/>
+			<Variable name="city_id3" type="string" column="city_id" row="3"/>
+			<Variable name="city_id4" type="string" column="city_id" row="4"/>
+		</ContentProviderBinder>
+
+		<ContentProviderBinder name="weatherInfo"
+			uri="content://weather/all_weather" whereFormat="city_id='%s' AND day=1" whereParas="@cityIDString"
+			columns="city_name,publish_time,temperature,temperature_range,description,wind,humidity,weather_type"
+			order="day"
+			countName="hasweather"
+			dependency="cityIDs">
+			<Variable name="weather_location" type="string" column="city_name" row="0"/>
+			<Variable name="weather_temperature" type="string" column="temperature" row="0"/>
+			<Variable name="weather_temperature_range" type="string" column="temperature_range" row="0"/>
+			<Variable name="weather_description" type="string" column="description" row="0"/>
+			<Variable name="weather_wind" type="string" column="wind" row="0"/>
+			<Variable name="weather_id" type="int" column="weather_type" row="0"/>
+			<Variable name="weather_publish_time" type="long" column="publish_time" row="0"/>
+			<Variable name="weather_humidity" type="string" column="humidity"/>
+		</ContentProviderBinder>
+	</VariableBinders>
+
+  <Var name="datNetInfo" expression="#todayUsed/1024" type="number"/>
+  <Var name="txtNetInfo" expression="ifelse(gt(#datNetInfo,512),'%dMB','%dKB')" type="string"/>
+
+
+  <VarArray type="string">
+    <Vars>
+      <Var name="cityIDString" index="#cityID"/>
+    </Vars>
+    <Items>
+      <Item expression="@city_id0"/>
+      <Item expression="@city_id1"/>
+      <Item expression="@city_id2"/>
+      <Item expression="@city_id3"/>
+      <Item expression="@city_id4"/>
+    </Items>
+  </VarArray>
+
+	<Var name="has_night_icon" expression="eq(#weather_id,0)+eq(#weather_id,1)+eq(#weather_id,8)"/>
+	<Var name="icon_suffix" expression="ifelse(#has_night_icon,'_'+not(ge(#hour24,6)*le(#hour24,17)),'')" type="string"/>
+
+  <VarArray type="string">
+    <Vars>
+      <Var name="batterySuffix" index="#battery_state"/>
+    </Vars>
+    <Items>
+      <Item value=""/>
+      <Item value="USB"/>
+      <Item value="LOW"/>
+      <Item value="FULL"/>
+    </Items>
+  </VarArray>
+  <VarArray type="string">
+    <Vars>
+      <Var name="batteryColor" index="#battery_state"/>
+    </Vars>
+    <Items>
+      <Item value="#FFFFFFFF"/>
+      <Item value="#FFFFFFFF"/>
+      <Item value="#FFFF0000"/>
+      <Item value="#FFFFFFFF"/>
+    </Items>
+  </VarArray>
+	
+	<Button name="clock_button" x="0" y="0" w="1" h="1" />
+	<Button name="clocksize_button" x="#x1-#w1-#w2-#w3-#w4-#w5" y="#view_height/2-#y1" w="#w1+#w2+#w3+#w4+#w5" h="#h1">
+		<Triggers>
+			<Trigger action="up">
+				<VariableCommand name="largeText" expression="ifelse(ge(#largeText,2),0,#largeText+1)" />
+			</Trigger>
+			<Trigger action="double">
+        <IntentCommand action="android.intent.action.VIEW" package="com.android.deskclock" class="com.android.deskclock.DeskClockTabActivity"/>
+			</Trigger>
+		</Triggers>
+	</Button>
+	
+	<Button name="calendar_button" x="0" y="#view_height/2"  w="#x1" h="#y1/3*2">
+		<Triggers>
+			<Trigger action="up">
+        <IntentCommand action="android.intent.action.VIEW" package="com.android.calendar" class="com.android.calendar.LaunchActivity"/>
+			</Trigger>
+		</Triggers>
+	</Button>
+	
+	<Button name="power_button" x="#x1-#txtBattery.text_width" y="#view_height/2+#y1/3*2"  w="#txtBattery.text_width" h="#y1/3">
+		<Triggers>
+			<Trigger action="up">
+				<IntentCommand action="android.intent.action.VIEW" package="com.android.settings" class="com.android.settings.fuelgauge.PowerUsageSummary"/>
+			</Trigger>
+		</Triggers>
+	</Button>
+	
+	<Button name="netInfo_button" x="0" y="#view_height/2+#y1/3*2"  w="#x1-#txtBattery.text_width" h="#y1/3">
+		<Triggers>
+			<Trigger action="up">
+				<IntentCommand action="android.intent.action.VIEW_DATA_USAGE_SUMMARY" package="com.miui.networkassistant" class="com.miui.networkassistant.ui.NetworkAssistantActivity"/>
+			</Trigger>
+		</Triggers>
+	</Button>
+
+	<Button name="weather_button" x="#x2" y="#view_height/2-#y1"  w="194" h="#y1*2">
+		<Triggers>
+			<Trigger action="up">
+				<VariableCommand name="cityID" expression="ifelse(lt(#cityID,min(4,#hasCity-1)),#cityID+1,0)" />
+    		<BinderCommand name="weatherInfo" command="refresh" delay="100" />
+			</Trigger>
+			<Trigger action="double">
+				<IntentCommand action="android.intent.action.VIEW" package="com.miui.weather2" class="com.miui.weather2.ActivityWeatherMain"/>
+			</Trigger>
+		</Triggers>
+	</Button>
+
+
+	<!--DateTime x="#x1" y="#view_height/2-10" color="@clockColor" size="120" align="right" format="kk:mm" w="#x1" alpha="255" alignV="bottom"/-->
+
+  <Group name="clockText" x="0" y="#view_height/2-#y1" frameRate="1">
+	  <Image y="0" src="white.png"
+	  	x="#x1"
+	  	w="#w5" h="#h5" alignV="top" align="right">
+			<Mask x="0" y="0" src="time/time.png" srcid="#minute%10" w="#w5" h="#h5" align="related"/>
+		</Image>
+	  <Image y="0" src="white.png"
+	  	x="#x1-#w5"
+	  	w="#w4" h="#h4" alignV="top" align="right">
+			<Mask x="0" y="0" src="time/time.png" srcid="#minute/10" w="#w4" h="#h4" align="related"/>
+		</Image>
+
+		<Group x="0" y="0" frameRate="10">
+			<Var name="cubic_factor">
+				<VariableAnimation>
+					<AniFrame value="0"   time="100"/>
+					<AniFrame value="0.5" time="700"/>
+					<AniFrame value="0"   time="700"/>
+					<AniFrame value="0.5" time="1600"/>
+				</VariableAnimation>
+			</Var>
+			<Var name="cubic_flag">
+				<VariableAnimation>
+					<AniFrame value="1" time="100"/>
+					<AniFrame value="1" time="700"/>
+					<AniFrame value="0" time="700"/>
+					<AniFrame value="0" time="1600"/>
+				</VariableAnimation>
+			</Var>
+			<Var name="cubic_ani" expression="ifelse(#cubic_flag,8*#cubic_factor*#cubic_factor*#cubic_factor,1-8*#cubic_factor*#cubic_factor*#cubic_factor)"/>
+
+		  <Image y="0" src="white.png" alpha="255*#cubic_ani"
+		  	x="#x1-#w5-#w4"
+		  	w="#w3" h="#h3" alignV="top" align="right">
+				<Mask x="0" y="0" src="time/time_dot.png" w="#w3" h="#h3" align="related"/>
+			</Image>
+		</Group>
+
+	  <Image y="0" src="white.png"
+	  	x="#x1-#w5-#w4-#w3"
+	  	w="#w2" h="#h2" alignV="top" align="right">
+			<Mask x="0" y="0" src="time/time.png" srcid="#hour24%10" w="#w2" h="#h2" align="related"/>
+		</Image>
+	  <Image y="0" src="white.png"
+	  	x="#x1-#w5-#w4-#w3-#w2"
+	  	w="#w1" h="#h1" alignV="top" align="right">
+			<Mask x="0" y="0" src="time/time.png" srcid="#hour24/10" w="#w1" h="#h1" align="related"/>
+		</Image>
+
+	  <Group name="alarmText" x="#x1-#w5-#w4-#w3/2" y="(#clockTextW1+#clockTextW2)/2" visibility="eq(#largeText,0)*not(eqs(@next_alarm_time,''))">
+			<Image name="sysAlarm" src="white.png"
+		  	x="0" y="0"
+		  	w="27" h="22" alignV="center" align="center">
+				<Mask x="0" y="0" src="time/alarm.png" align="related"/>
+			</Image>
+			<Text text="@next_alarm_time" x="15" y="0" w="#w5+#w4+#w3/2-15" marqueeSpeed="30" color="@clockColor" size="18" align="left" alignV="center" />
+	  </Group>
+  </Group>
+
+  
+  <Group name="dateText" frameRate="1">
+		<DateTime x="#x1" y="#view_height/2+#y1/6" color="@clockColor" size="24" align="right" format="yyyy年M月d日  EEEE" w="#x1" alpha="255" alignV="center"/>
+		<DateTime x="#x1" y="#view_height/2+#y1/2" color="@clockColor" size="24" align="right" format="农历NNNN" w="#x1" alpha="255" alignV="center"/>
+		<Text name="txtBattery" x="#x1" y="#view_height/2+#y1/6*5" color="@clockColor" size="24" align="right" format="电量 %d%%" paras="#battery_level" alpha="255" alignV="center"/>
+		<Text x="#x1-#txtBattery.text_width" y="#view_height/2+#y1/6*5" color="@clockColor" size="24" align="right" format="今日%d.%dMB,已用%d%% | "
+			paras="#todayUsed/1024/1000,#todayUsed/1024*10/1000%10,#monthUsed*100/#totalLimit"
+			w="#x1-#txtBattery.text_width" marqueeSpeed="30"
+			alpha="255" alignV="center"/>
+  </Group>
+  	
+	<Image name="splitLine" x="(#x1+#x2)/2" y="#view_height/2" src="white.png" align="center" alignV="center" w="3" h="#y1*2" />
+	
+	<Group x="#x2" y="0" name="weatherText">
+		<Image x="0" y="#view_height/2+10" alignV="bottom" src="white.png" w="118" h="118">
+			<Mask x="0" y="0" srcExp="'weather/weather_' + #weather_id + @icon_suffix + '.png'" align="related"/>
+		</Image>
+			
+		<Text x="8" y="#view_height/2+#y1/6"   color="@clockColor" size="24" format="%s" paras="@weather_location" alpha="255" alignV="center" marqueeSpeed="30" w="190"/>
+		<Text x="8" y="#view_height/2+#y1/2"   color="@clockColor" size="24" format="%s" paras="@weather_temperature_range" alpha="255" alignV="center" marqueeSpeed="30" w="190"/>
+		<Text x="8" y="#view_height/2+#y1/6*5" color="@clockColor" size="24" format="%s" paras="@weather_description"  marqueeSpeed="30" alignV="center" w="190"/>
+  </Group>
+  
+	<!--Text x="0"  y="#view_height/2+#y1+#y1/3-18" color="@clockColor" size="24" align="left" format="%d" paras="#initFlag" w="600" alpha="255" marqueeSpeed="30" alignV="center"/-->
+</Clock>
